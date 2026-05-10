@@ -19,7 +19,7 @@ import time
 import os
 import sys
 
-# --- NUEVA SECCIÃ“N DE HARDWARE PARA PCA9685 ---
+# --- NUEVA SECCIÃƒâ€œN DE HARDWARE PARA PCA9685 ---
 try:
     import board
     import busio
@@ -44,8 +44,8 @@ except Exception as e:
 # Dimensiones para 2R
 l1 = 10.7
 l2 = 10.3
-Px=0.5
-Py=0.5
+Px=0
+Py=0
 n = 10
 x = numpy.arange(1, n + 1, 1)
 
@@ -167,6 +167,8 @@ class Ui_MainWindow(object):
 
         self.retranslateUi(MainWindow)
         self.pushButton.clicked.connect(self.manual)
+        self.pushButton_2.clicked.connect(self.dibujar_area)
+
 
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -202,32 +204,32 @@ class Ui_MainWindow(object):
         self.label_6.setText(_translate("MainWindow", "UNIVERSIDAD ECCI"))
 
     def manual(self):
-        """Función para mover los servos directamente al objetivo sin interpolación"""
+        """FunciÃ³n para mover los servos directamente al objetivo sin interpolaciÃ³n"""
         try:
             # 1. Obtener destino desde los cuadros de texto
             target_x = float(self.textEdit.toPlainText())
             target_y = float(self.textEdit_2.toPlainText())
 
-            # 2. Calcular cinemática inversa para el destino
+            # 2. Calcular cinemÃ¡tica inversa para el destino
             resultado_inv = InverseKinematics2R(l1, l2, target_x, target_y)
             
             if resultado_inv:
                 th1_final, th2_final = resultado_inv
                 
-                # 3. Mover Servos físicos directamente (en grados)
+                # 3. Mover Servos fÃ­sicos directamente (en grados)
                 if SERVO_1 and SERVO_2:
                     q1_deg = math.degrees(th1_final)
                     q2_deg = math.degrees(th2_final)
-                    # Limitación de seguridad 0-180
+                    # LimitaciÃ³n de seguridad 0-180
                     SERVO_1.angle = max(0, min(180, q1_deg))
                     SERVO_2.angle = max(0, min(180, q2_deg))
-                    print(f"Servos movidos a: q1={q1_deg:.2f}°, q2={q2_deg:.2f}°")
+                    print(f"Servos movidos a: q1={q1_deg:.2f}Â°, q2={q2_deg:.2f}Â°")
 
                 # 4. Feedback visual: Graficar solo el punto final y el brazo
-                plt.figure("Posición Manual Directa")
+                plt.figure("PosiciÃ³n Manual Directa")
                 plt.clf()
                 
-                # Obtener coordenadas con cinemática directa para verificar
+                # Obtener coordenadas con cinemÃ¡tica directa para verificar
                 MTH = ForwardKinematics2R(l1, l2, th1_final, th2_final)
                 px, py = MTH.t[0], MTH.t[1]
 
@@ -243,13 +245,136 @@ class Ui_MainWindow(object):
                 
                 print(f"Movimiento directo completado a X:{px:.2f} Y:{py:.2f}")
             else:
-                print("Error: El punto está fuera del área de trabajo.")
+                print("Error: El punto estÃ¡ fuera del Ã¡rea de trabajo.")
 
         except ValueError:
-            print("Error: Ingrese números válidos en los campos de posición.")
+            print("Error: Ingrese nÃºmeros vÃ¡lidos en los campos de posiciÃ³n.")
         except Exception as e:
             print(f"Error inesperado: {e}")
 
+
+    def dibujar_area(self):
+        # Dimensiones para 2R
+        l1 = 10.7
+        l2 = 10.3
+
+        # CinemÃ¡tica inversa 2R (Solo Px y Py) - Siguiendo TU orden de parÃ¡metros
+        # Punto 0
+        P0x = 0.5
+        P0y = 0.5
+        [theta1_P0, theta2_P0] = InverseKinematics2R(l1, l2, P0x, P0y)
+
+        # Punto 1
+        P1x = 21
+        P1y = 0
+        [theta1_P1, theta2_P1] = InverseKinematics2R(l1, l2, P1x, P1y)
+
+        # Punto 2
+        P2x = -21
+        P2y = 0
+        [theta1_P2, theta2_P2] = InverseKinematics2R(l1, l2, P2x, P2y)
+
+        # Punto 3
+        P3x = -10
+        P3y = -10
+        [theta1_P3, theta2_P3] = InverseKinematics2R(l1, l2, P3x, P3y)
+
+        # Punto 4
+        P4x = -0.5
+        P4y = -0.5
+        [theta1_P4, theta2_P4] = InverseKinematics2R(l1, l2, P4x, P4y)
+
+        n = 5
+        x = numpy.arange(1, n + 1, 1)
+
+        # InterpolaciÃ³n de 2 Ã¡ngulos Ãºnicamente
+        theta1_P0toP1 = numpy.linspace(theta1_P0, theta1_P1, n)
+        theta2_P0toP1 = numpy.linspace(theta2_P0, theta2_P1, n)
+        theta1_P1toP2 = numpy.linspace(theta1_P1, theta1_P2, n)
+        theta2_P1toP2 = numpy.linspace(theta2_P1, theta2_P2, n)
+        theta1_P2toP3 = numpy.linspace(theta1_P2, theta1_P3, n)
+        theta2_P2toP3 = numpy.linspace(theta2_P2, theta2_P3, n)
+        theta1_P3toP4 = numpy.linspace(theta1_P3, theta1_P4, n)
+        theta2_P3toP4 = numpy.linspace(theta2_P3, theta2_P4, n)
+
+        # d almacenarÃ¡ X e Y (usamos 2 filas)
+        d = numpy.zeros((2, n))
+
+        fig1 = plt.figure()
+        ax0 = fig1.add_subplot(111)
+        ax0.set_xlabel('X')
+        ax0.set_ylabel('Y')
+        ax0.set_xlim(-25, 25)
+        ax0.set_ylim(-25, 25)
+        ax0.set_title('Trayectoria en Plano XY')
+        ax0.grid(True)
+
+        # --- BLOQUES SEPARADOS DE MOVIMIENTO Y DIBUJO ---
+        for i in range(0, n):
+            # Movimiento fÃ­sico (con conversiÃ³n a grados y protecciÃ³n)
+            if SERVO_1 and SERVO_2:
+                SERVO_1.angle = max(0, min(180, math.degrees(theta1_P0toP1[i])))
+                SERVO_2.angle = max(0, min(180, math.degrees(theta2_P0toP1[i])))
+            
+            MTH = ForwardKinematics2R(l1, l2, theta1_P0toP1[i], theta2_P0toP1[i])
+            d[0, i] = MTH.t[0]
+            d[1, i] = MTH.t[1]    
+            ax0.plot(d[0, i], d[1, i], '.b')
+
+
+        for i in range(0, n):
+            if SERVO_1 and SERVO_2:
+                SERVO_1.angle = max(0, min(180, math.degrees(theta1_P1toP2[i])))
+                SERVO_2.angle = max(0, min(180, math.degrees(theta2_P1toP2[i])))
+                
+            MTH = ForwardKinematics2R(l1, l2, theta1_P1toP2[i], theta2_P1toP2[i])
+            d[0, i] = MTH.t[0]
+            d[1, i] = MTH.t[1]    
+            ax0.plot(d[0, i], d[1, i], '.b')
+
+
+        for i in range(0, n):
+            if SERVO_1 and SERVO_2:
+                SERVO_1.angle = max(0, min(180, math.degrees(theta1_P2toP3[i])))
+                SERVO_2.angle = max(0, min(180, math.degrees(theta2_P2toP3[i])))
+                
+            MTH = ForwardKinematics2R(l1, l2, theta1_P2toP3[i], theta2_P2toP3[i])
+            d[0, i] = MTH.t[0]
+            d[1, i] = MTH.t[1]    
+            ax0.plot(d[0, i], d[1, i], '.b')
+
+
+        for i in range(0, n):
+            if SERVO_1 and SERVO_2:
+                SERVO_1.angle = max(0, min(180, math.degrees(theta1_P3toP4[i])))
+                SERVO_2.angle = max(0, min(180, math.degrees(theta2_P3toP4[i])))
+                
+            MTH = ForwardKinematics2R(l1, l2, theta1_P3toP4[i], theta2_P3toP4[i])
+            d[0, i] = MTH.t[0]
+            d[1, i] = MTH.t[1]    
+            ax0.plot(d[0, i], d[1, i], '.b')
+  
+
+        plt.show(block=False)
+
+        # GrÃ¡ficas de Espacio Articulacional y Operacional
+        fig2 = plt.figure(2)
+        ax1, ax2 = fig2.subplots(2, 1)
+
+        ax1.plot(x, numpy.rad2deg(theta1_P1toP2), 'tab:red', label='q1')
+        ax1.plot(x, numpy.rad2deg(theta2_P1toP2), 'tab:green', label='q2')
+        ax1.set_title('Espacio articulacional')
+        ax1.legend(loc="upper left")
+        ax1.grid(True)
+
+        ax2.plot(x, d[0, :], 'tab:red', label='X')
+        ax2.plot(x, d[1, :], 'tab:green', label='Y')
+        ax2.set_title('Espacio operacional')
+        ax2.legend(loc="upper left")
+        ax2.grid(True)
+
+        plt.tight_layout()
+        plt.show()
 
 
 if __name__ == "__main__":
