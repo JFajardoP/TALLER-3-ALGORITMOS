@@ -1,0 +1,53 @@
+    def manual(self):
+        """Calcula la cinemÃ¡tica inversa y mueve el hardware/simulador."""
+        try:
+            # 1. Leer las coordenadas forzando a flotantes nativos
+            px_val = float(self.textEdit.toPlainText())
+            py_val = float(self.textEdit_2.toPlainText())
+            
+            # 2. Ejecutar cinemÃ¡tica inversa
+            q1, q2 = InverseKinematics2R(l1, l2, px_val, py_val)
+            
+            # 3. Forzar la conversiÃ³n a flotantes puros de Python (asÃ­ se limpian de arreglos de NumPy)
+            q1_float = float(np.asarray(q1).item() if hasattr(q1, "item") else q1)
+            q2_float = float(np.asarray(q2).item() if hasattr(q2, "item") else q2)
+            
+            # 4. Convertir a grados de forma segura
+            q1_deg = float(numpy.rad2deg(q1_float))
+            q2_deg = float(numpy.rad2deg(q2_float))
+            
+            # CorrecciÃ³n de formato: Texto limpio sin errores de ndarray
+            self.textEdit_3.setText(f"Moviendo a X:{px_val:.2f}, Y:{py_val:.2f}")
+            
+            # 5. Control del Hardware Real (PCA9685)
+            if SERVO_1 is not None and SERVO_2 is not None:
+                SERVO_1.angle = max(0.0, min(180.0, q1_deg))
+                SERVO_2.angle = max(0.0, min(180.0, q2_deg))
+                
+            # 6. Actualizar el Simulador 3D URDF
+            if self.robot_urdf is not None:
+                self.robot_urdf.update_cfg({"joint_1": q1_float, "joint_2": q2_float})
+                self.robot_urdf.show()
+                
+        except ValueError as err:
+            self.textEdit_3.setText("Error: Fuera de rango")
+            print(f"Punto inalcanzable: {err}")
+        except Exception as e:
+            self.textEdit_3.setText("Error de datos")
+            print(f"Error inesperado: {e}")
+
+# --- SOLUCIÃ“N AL LOOP YA CORRIENDO Y EVENTOS GRÃFICOS ---
+if __name__ == "__main__":
+    # Detecta si ya hay un entorno Qt ejecutÃ¡ndose de fondo en tu PC
+    app = QtWidgets.QApplication.instance()
+    if not app:
+        app = QtWidgets.QApplication(sys.argv)
+    
+    MainWindow = QtWidgets.QMainWindow()
+    ui = Ui_MainWindow()
+    ui.setupUi(MainWindow)
+    MainWindow.show()
+    
+    # Solo cierra el sistema si el loop se creÃ³ desde cero aquÃ­
+    if QtWidgets.QApplication.instance() and not hasattr(QtCore, 'PYQT_VERSION'):
+        sys.exit(app.exec_())
